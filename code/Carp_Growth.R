@@ -17,6 +17,11 @@ df <- df %>% filter(Age>1)
 myfun <- function(Age) {
   1223.709 * (1 - exp(-0.173*(Age-0)))
 }
+
+#create dataframe for plotting
+fun_data <- data.frame(c(1:6), myfun(1:6), rep("Combined",6))
+colnames(fun_data) <- c("Age", ".epred", "Waterbody")
+
 ###########################################
 ########  Create the von B Equation  ######
 ###########################################
@@ -96,29 +101,38 @@ pred_int <- post_pred_int %>%
 ###############################################
 ############# Plotting Posterior ##############
 ###############################################
-posts %>% 
-  ggplot(aes(x = Age, y = .epred)) + 
-  geom_line(aes(color = Waterbody), size = 1) +
+posts2 <- posts %>% select(Age, Waterbody, .epred) 
+
+posts2.1 <- merge(posts2,pred_int, by=c("Age", "Waterbody"))
+posts3 <- bind_rows(posts2.1, fun_data)
+
+posts3 %>% 
+  ggplot() + 
+  geom_line(aes(x = Age, y = .epred, color = Waterbody, linetype=Waterbody), linewidth = 1) +
+  #geom_line(data=fun_data, aes(x=ages, y=tl), size=1, linetype="dashed")+
   geom_point(data=df, aes(y=TL, x=Age, fill=Waterbody),colour="black",pch=21, size = 2.5, position = position_jitter(width=.05))+
-  ylab("Total length (mm)")+
+  geom_ribbon(aes(x = Age, fill = Waterbody, ymin = .lower, ymax = .upper, y=.prediction), alpha = 0.3)+
+    ylab("Total length (mm)")+
   xlab("Age (years)")+
-  scale_fill_manual(values=c("black","grey70"))+
-  scale_color_manual(values=c("black","grey70"))+
+  scale_fill_manual(values=c("black" , "grey70", NA), breaks = c("BigSioux", "James", "Combined"),
+                    labels=c("Big Sioux 2022",  "James 2022","Combined 2012"), name=NULL)+
+  scale_color_manual(values=c("black", "grey70","black"), breaks = c("BigSioux", "James", "Combined"),
+                     labels=c("Big Sioux 2022", "James 2022","Combined 2012"), name=NULL)+
+  scale_linetype_manual(values=c(1,1,2), breaks = c("BigSioux", "James", "Combined"),
+                        labels=c("Big Sioux 2022","James 2022", "Combined 2012"), name=NULL)+
   scale_x_continuous(breaks=seq(1:14))+
   scale_y_continuous(limits = c(0, 1200), breaks=seq(0, 1200, by=100))+
   #geom_ribbon(aes(fill = Waterbody, ymin = .lower, ymax = .upper, y=.epred), alpha = 0.3)+
-  geom_ribbon(data=pred_int, aes(fill = Waterbody, ymin = .lower, ymax = .upper, y=.prediction), alpha = 0.3)+
   theme_classic()+
   theme(legend.position = c(.9, 0.3),
         legend.justification = c("right", "top"),
         legend.box.just = "right",
-        legend.box.background = element_rect(color="black", size=1),
+        #legend.box.background = element_rect(color="black", size=1),
         legend.text = element_text(size=14),
         legend.title = element_text(size = 14),
         axis.title=element_text(size=18),
         axis.text = element_text(size = 14))+
-  stat_function(fun = myfun, geom = "line", size=1, linetype="dotted")+
-  guides(fill="legend")
+  guides(color=guide_legend(override.aes=list(fill=c("black", "gray70", NA), pch=c(21,21, NA))))
 
 #ggsave("Figure 1. Silver Carp Growth Curves.jpeg", plot=last_plot(),width=8, heigh=5, units="in", dpi=600)
 
@@ -158,22 +172,14 @@ sum(K_vals$b_K_WaterbodyJames>0)/4000
 
 
 #####
-###probability that ages 1-6 are larger from Hayer et al. 2014
+###Differences in Linf and K from Hayer et al. 2014
 #Big Sioux
-sum(filter(post_pred_int, Age==1, Waterbody=="BigSioux")$.prediction<myfun(1))/4000
-sum(filter(post_pred_int, Age==2, Waterbody=="BigSioux")$.prediction<myfun(2))/4000
-sum(filter(post_pred_int, Age==3, Waterbody=="BigSioux")$.prediction<myfun(3))/4000
-sum(filter(post_pred_int, Age==4, Waterbody=="BigSioux")$.prediction<myfun(4))/4000
-sum(filter(post_pred_int, Age==5, Waterbody=="BigSioux")$.prediction<myfun(5))/4000
-sum(filter(post_pred_int, Age==6, Waterbody=="BigSioux")$.prediction<myfun(6))/4000
+mean(1223 - Linf_vals$Linf_BigSioux)
+mean(K_vals$K_BigSioux - 0.173)
 
 #James
-sum(filter(post_pred_int, Age==1, Waterbody=="James")$.prediction<myfun(1))/4000
-sum(filter(post_pred_int, Age==2, Waterbody=="James")$.prediction<myfun(2))/4000
-sum(filter(post_pred_int, Age==3, Waterbody=="James")$.prediction<myfun(3))/4000
-sum(filter(post_pred_int, Age==4, Waterbody=="James")$.prediction<myfun(4))/4000
-sum(filter(post_pred_int, Age==5, Waterbody=="James")$.prediction<myfun(5))/4000
-sum(filter(post_pred_int, Age==6, Waterbody=="James")$.prediction<myfun(6))/4000
+mean(1223 - Linf_vals$Linf_James)
+mean(K_vals$K_James - 0.173)
 
 ###############################################
 ##########  Sensitivity Analysis  #############
